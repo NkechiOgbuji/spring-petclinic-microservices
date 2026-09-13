@@ -15,7 +15,7 @@
 	</parent>
 
     <properties>
-        <docker.image.exposed.port>8081</docker.image.exposed.port>
+        <docker.image.exposed.port>8084</docker.image.exposed.port>
         <docker.image.dockerfile.dir>${basedir}/../docker</docker.image.dockerfile.dir>
         <spring-ai.version>2.0.0-M1</spring-ai.version>
     </properties>

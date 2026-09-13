@@ -9,6 +9,12 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+  checks: write
+  packages: write
+  security-events: write
+
 jobs:
   build:
 
@@ -27,3 +33,67 @@ jobs:
         cache: maven
     - name: Build with Maven
       run: mvn -B package --file pom.xml
+    - name: Publish test report
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Maven Tests
+        path: '**/target/surefire-reports/*.xml'
+        reporter: java-junit
+
+  build-scan-push:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAMESPACE: nkechiogbuji
+      SERVICES: "admin-server api-gateway config-server customers-service discovery-server genai-service vets-service visits-service"
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'adopt'
+        cache: maven
+
+    - name: Build jars and local Docker images
+      run: ./mvnw -B clean install -P buildDocker -DskipTests
+
+    - name: Install Trivy
+      uses: aquasecurity/setup-trivy@v0.2.0
+
+    - name: Scan each image with Trivy (report-only)
+      run: |
+        mkdir -p trivy-results
+        for service in $SERVICES; do
+          trivy image \
+            --format sarif \
+            --output "trivy-results/${service}.sarif" \
+            "${IMAGE_NAMESPACE}/spring-petclinic-${service}:latest"
+        done
+
+    - name: Upload Trivy results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: trivy-results
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Tag and push images to GHCR
+      run: |
+        for service in $SERVICES; do
+          local_tag="${IMAGE_NAMESPACE}/spring-petclinic-${service}:latest"
+          docker tag "$local_tag" "${REGISTRY}/${IMAGE_NAMESPACE}/spring-petclinic-${service}:latest"
+          docker tag "$local_tag" "${REGISTRY}/${IMAGE_NAMESPACE}/spring-petclinic-${service}:${{ github.sha }}"
+          docker push "${REGISTRY}/${IMAGE_NAMESPACE}/spring-petclinic-${service}:latest"
+          docker push "${REGISTRY}/${IMAGE_NAMESPACE}/spring-petclinic-${service}:${{ github.sha }}"
+        done
