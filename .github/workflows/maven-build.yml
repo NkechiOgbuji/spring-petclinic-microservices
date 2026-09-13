@@ -75,11 +75,61 @@ jobs:
             "${IMAGE_NAMESPACE}/spring-petclinic-${service}:latest"
         done
 
-    - name: Upload Trivy results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
+    - name: Upload Trivy results for config-server
       if: always()
+      uses: github/codeql-action/upload-sarif@v3
       with:
-        sarif_file: trivy-results
+        sarif_file: trivy-results/config-server.sarif
+        category: trivy-config-server
+
+    - name: Upload Trivy results for discovery-server
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: trivy-results/discovery-server.sarif
+        category: trivy-discovery-server
+
+    - name: Upload Trivy results for customers-service
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: trivy-results/customers-service.sarif
+        category: trivy-customers-service
+
+    - name: Upload Trivy results for visits-service
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: trivy-results/visits-service.sarif
+        category: trivy-visits-service
+
+    - name: Upload Trivy results for vets-service
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: trivy-results/vets-service.sarif
+        category: trivy-vets-service
+
+    - name: Upload Trivy results for api-gateway
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: trivy-results/api-gateway.sarif
+        category: trivy-api-gateway
+
+    - name: Upload Trivy results for admin-server
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: trivy-results/admin-server.sarif
+        category: trivy-admin-server
+
+    - name: Upload Trivy results for genai-service
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: trivy-results/genai-service.sarif
+        category: trivy-genai-service
 
     - name: Log in to GitHub Container Registry
       uses: docker/login-action@v3
