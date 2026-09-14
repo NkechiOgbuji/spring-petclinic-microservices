@@ -9,3 +9,5 @@ resources:
   - discovery-server/service.yaml
   - customers-service/deployment.yaml
   - customers-service/service.yaml
+  - visits-service/deployment.yaml
+  - visits-service/service.yaml
