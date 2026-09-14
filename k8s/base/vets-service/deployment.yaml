@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vets-service
+  namespace: petclinic
+  labels:
+    app.kubernetes.io/name: vets-service
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/component: business
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vets-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vets-service
+        app.kubernetes.io/part-of: petclinic
+        app.kubernetes.io/component: business
+    spec:
+      containers:
+        - name: vets-service
+          image: ghcr.io/nkechiogbuji/spring-petclinic-vets-service:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            # The image's baked-in "docker" profile hardcodes both of these to
+            # Docker Compose hostnames ("config-server" / "discovery-server").
+            # Override explicitly with in-cluster Service DNS names rather than
+            # relying on those names coincidentally matching our Services.
+            # No database credentials are set here: same as customers-service
+            # and visits-service, the docker profile served by config-server
+            # does not configure spring.datasource.* for this service, so it
+            # falls back to Spring Boot's auto-configured embedded HSQLDB,
+            # seeded from classpath db/hsqldb/schema.sql and data.sql.
+            - name: SPRING_CONFIG_IMPORT
+              value: configserver:http://config-server.petclinic.svc.cluster.local:8888
+            - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+              value: http://discovery-server.petclinic.svc.cluster.local:8761/eureka/
+          ports:
+            - name: http
+              containerPort: 8083
+              protocol: TCP
+          # Same JPA/HSQLDB + Eureka-client startup profile as
+          # customers-service and visits-service, but observed in practice to
+          # take ~400s end-to-end on this contended kind/WSL node -- their
+          # shared 360s budget (periodSeconds 10 x failureThreshold 36) was
+          # too tight and caused two startup-probe kills mid-Eureka-fetch.
+          # Widen to a 600s budget for headroom.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

@@ -36,15 +36,19 @@ spec:
               containerPort: 8761
               protocol: TCP
           # Eureka server + client startup, plus fetching config from
-          # config-server, is slower than a plain HTTP handshake, and this
-          # kind node is CPU-constrained, so give it a generous startup
-          # window before liveness/readiness kick in.
+          # config-server, is slower than a plain HTTP handshake. The
+          # original 200s budget (periodSeconds 5 x failureThreshold 40)
+          # proved too tight on this contended kind/WSL node -- observed
+          # repeatedly killing the container right around that mark, in the
+          # same way vets-service's original 360s budget did (that one
+          # needed ~461s to actually finish starting). Widen to the same
+          # 600s budget used for vets-service for headroom.
           startupProbe:
             httpGet:
               path: /actuator/health/liveness
               port: http
-            periodSeconds: 5
-            failureThreshold: 40
+            periodSeconds: 10
+            failureThreshold: 60
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness

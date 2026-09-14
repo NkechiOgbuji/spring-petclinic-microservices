@@ -11,3 +11,5 @@ resources:
   - customers-service/service.yaml
   - visits-service/deployment.yaml
   - visits-service/service.yaml
+  - vets-service/deployment.yaml
+  - vets-service/service.yaml
