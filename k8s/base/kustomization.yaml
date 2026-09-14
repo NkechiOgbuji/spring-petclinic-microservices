@@ -13,3 +13,5 @@ resources:
   - visits-service/service.yaml
   - vets-service/deployment.yaml
   - vets-service/service.yaml
+  - api-gateway/deployment.yaml
+  - api-gateway/service.yaml

@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: petclinic
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api-gateway
+        app.kubernetes.io/part-of: petclinic
+        app.kubernetes.io/component: gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: ghcr.io/nkechiogbuji/spring-petclinic-api-gateway:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            # Same reasoning as every other service: the image's baked-in
+            # "docker" profile hardcodes these to Docker Compose hostnames,
+            # so override explicitly with in-cluster Service DNS names.
+            - name: SPRING_CONFIG_IMPORT
+              value: configserver:http://config-server.petclinic.svc.cluster.local:8888
+            - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+              value: http://discovery-server.petclinic.svc.cluster.local:8761/eureka/
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          # Same JVM/Eureka-client startup profile as the other business
+          # services on this contended kind/WSL node; use the same 360s
+          # startup budget (periodSeconds 10 x failureThreshold 36) proven
+          # for customers-service/visits-service.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
