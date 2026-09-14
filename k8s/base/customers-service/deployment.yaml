@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customers-service
+  namespace: petclinic
+  labels:
+    app.kubernetes.io/name: customers-service
+    app.kubernetes.io/part-of: petclinic
+    app.kubernetes.io/component: business
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: customers-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: customers-service
+        app.kubernetes.io/part-of: petclinic
+        app.kubernetes.io/component: business
+    spec:
+      containers:
+        - name: customers-service
+          image: ghcr.io/nkechiogbuji/spring-petclinic-customers-service:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            # The image's baked-in "docker" profile hardcodes both of these to
+            # Docker Compose hostnames ("config-server" / "discovery-server").
+            # Override explicitly with in-cluster Service DNS names rather than
+            # relying on those names coincidentally matching our Services.
+            # No database credentials are set here: the docker profile served
+            # by config-server does not configure spring.datasource.* for this
+            # service, so it falls back to Spring Boot's auto-configured
+            # embedded HSQLDB, seeded from classpath db/hsqldb/schema.sql and
+            # data.sql - confirmed by running the jar locally against the real
+            # config-server. No MySQL/Secret is involved unless the unused
+            # "mysql" profile from the config repo is deliberately activated.
+            - name: SPRING_CONFIG_IMPORT
+              value: configserver:http://config-server.petclinic.svc.cluster.local:8888
+            - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+              value: http://discovery-server.petclinic.svc.cluster.local:8761/eureka/
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          # Observed real boot times on this contended kind/WSL node: a
+          # successful run took ~127s, and three earlier attempts were killed
+          # by this probe before finishing at the old 200s budget (periodSeconds
+          # 5 x failureThreshold 40). 360s gives ~2.8x margin over the observed
+          # successful boot without being unboundedly permissive.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
