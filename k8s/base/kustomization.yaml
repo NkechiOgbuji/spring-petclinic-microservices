@@ -15,3 +15,7 @@ resources:
   - vets-service/service.yaml
   - api-gateway/deployment.yaml
   - api-gateway/service.yaml
+  - admin-server/deployment.yaml
+  - admin-server/service.yaml
+  - genai-service/deployment.yaml
+  - genai-service/service.yaml
